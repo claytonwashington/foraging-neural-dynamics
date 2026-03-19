@@ -1,0 +1,3 @@
+_target_: lfads_torch.datamodules.BasicDataModule
+datafile_pattern: ${relpath:datasets/TORCH_wilbur20210407_wake_chopped_0.1xcorr_10ms.h5}
+batch_size: 2048
