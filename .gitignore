@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.pkl
+*.h5
+*.nwb
+.ipynb_checkpoints/
+.DS_Store

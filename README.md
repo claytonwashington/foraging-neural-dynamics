@@ -33,14 +33,14 @@ Tested on **Ubuntu 20.04** and **Ubuntu 22.04**. Expected to work on any Linux d
 ### Hardware Requirements
 
 - **Standard desktop computer** is sufficient for data processing and analysis (Steps 1, 2, 3)
-- **GPU** (NVIDIA, ≥8 GB VRAM recommended) required only for LFADS model training. Training was performed on NVIDIA A100 GPUs.
+- **GPU** (NVIDIA, ≥8 GB VRAM recommended) required only for LFADS model training. Training was performed on NVIDIA A40 GPUs.
 
 ## Installation Guide
 
 ### 1. Clone this repository
 
 ```bash
-git clone https://github.com/<your-org>/foraging-neural-dynamics.git
+git clone https://github.com/claytonwashington/foraging-neural-dynamics.git
 cd foraging-neural-dynamics
 ```
 
@@ -82,9 +82,11 @@ BASE_DIR = "/path/to/your/data"  # containing merged_datasets/ subdirectory
 # Jupyter: jupyter notebook, then open the script
 ```
 
-**Expected output**: Interactive 3D Plotly visualizations and publication-quality Matplotlib figures showing neural trajectories in PCA subspaces (navigation, pre-move, and outcome PC spaces).
+**Note:** To open the .py scripts as a Jupyter notebook, you can use JupyterLab (right-click --> "Open With"), or convert to `.ipynb` files using `jupytext`:
 
-**Expected run time**: ~10–30 minutes on a standard desktop, depending on dataset size.
+```bash
+jupytext --to notebook scripts/03_state_space_analysis.py
+```
 
 ### Full pipeline
 
@@ -105,7 +107,8 @@ python scripts/03_state_space_analysis.py
 
 ### Running on your own data
 
-1. **Prepare NWB file**: Format your neural data as an NWB file with spike times and trial metadata. See [pynwb documentation](https://pynwb.readthedocs.io/) for formatting guidelines.
+1. **Prepare NWB file**: Format your neural data as an NWB file with spike times and trial metadata. See [pynwb documentation](https://pynwb.readthedocs.io/) for formatting guidelines. Example NWB files are available at 
+## TODO: Add link to example NWB files in Dropbox
 
 2. **Update configuration**: Edit `configs/config.py`:
    - Set `BASE_DIR` to your data directory
@@ -132,15 +135,15 @@ Between Steps 1 and 2, train an LFADS model:
 
 1. Copy configs from `lfads_torch_configs/` to your `lfads-torch` installation
 2. Adjust `encod_data_dim` in the model config to match your unit count
-3. Run the PBT training script (see `lfads_torch_configs/scripts/run_pbt_wilbur.py`)
+3. Create and run the PBT training script (see `lfads_torch_configs/scripts/run_pbt_wilbur.py`)
 
 See the `lfads_torch_configs/` directory for example configuration files.
 
 ## Reproduction Instructions
 
-To reproduce the K99 figures from the paper:
+<!-- To reproduce the K99 figures from the paper:
 
-1. Obtain the NWB data file for the Wilbur session (day 4: `wilbur20210407_wake.nwb`)
+1. Obtain the NWB data file for the Wilbur session (day 4: `wilbur20210408_wake.nwb`)
 2. Run Steps 1–3 with the default configuration
 3. In `scripts/03_state_space_analysis.py`, look for `# %% Figure 3A` and subsequent `# %% K99:` cells
 
@@ -149,7 +152,9 @@ Key figures:
 - **Figure 3A Bottom**: Pre-move PC space (-1s to +1.5s around move initiation)
 - **Figure 3A Middle**: Action-coded trajectories in navigation space
 - **Figure 3A Right**: Patch-coded trajectories in navigation space
-- **K99 Outcome plots**: Outcome and pre-move trajectories split by reward condition
+- **K99 Outcome plots**: Outcome and pre-move trajectories split by reward condition -->
+
+## TODO: Add specific instructions 
 
 ## Additional Information
 
@@ -163,7 +168,7 @@ Key figures:
 
 ### Core module
 
-The `core/` directory contains standalone implementations of data processing classes originally from [snel-toolkit](https://github.com/snel-repo/snel-toolkit):
+The `core/` directory contains data processing classes:
 - `NWBDataset`: Load and preprocess NWB files
 - `LFADSInterface`: Chop data for LFADS and merge outputs
 - `BaseDataset`: Base class with resampling, smoothing, cross-correlation
