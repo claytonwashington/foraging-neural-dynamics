@@ -5,6 +5,8 @@ including:
 - Trial-averaged spirals in navigation and pre-move subspaces
 - Condition-averaged trajectories split by reward vs. no-reward
 - Single-trial trajectories colored by reward history
+- Single-trial outcome effects analysis (initial-state shifts, cosine angles,
+  bootstrapping, and polar angle histograms)
 
 Usage:
     Run cells interactively in VS Code or Jupyter (file uses # %% cell markers).
@@ -15,6 +17,7 @@ Usage:
 # %% Imports
 import sys
 import os
+import math
 import logging
 import typing
 import numpy as np
@@ -46,6 +49,8 @@ PC_padding = ss_analysis_config["pc_padding"]
 SWITCH_THRESH_TO_INCLUDE = ss_analysis_config["switch_incl_thresh"]
 PLOT_ALL_TRIALS = ss_analysis_config["plot_all_trials"]
 base_dir = config["base_dir"]
+results_dir = os.path.join(base_dir, "results")
+os.makedirs(results_dir, exist_ok=True)
 
 # %% Setup logger
 logger = logging.getLogger()
@@ -270,7 +275,7 @@ nav_data = grab_data_for_PC_space(
     df_to_slice, index_array, time_before_ms=0, time_after_ms=3000, align_point="start_time"
 )
 pre_move_data = grab_data_for_PC_space(
-    df_to_slice, index_array, time_before_ms=1000, time_after_ms=400, align_point="start_time"
+    df_to_slice, index_array, time_before_ms=800, time_after_ms=200, align_point="start_time"
 )
 outcome_data = grab_data_for_PC_space(
     df_to_slice, index_array, time_before_ms=0, time_after_ms=1000, align_point="poke_in_ts"
@@ -314,6 +319,7 @@ class CustomScaler:
 nav_pca_input = nav_data.reshape(-1, nav_data.shape[2])
 pre_move_pca_input = pre_move_data.reshape(-1, pre_move_data.shape[2])
 outcome_pca_input = outcome_data.reshape(-1, outcome_data.shape[2])
+
 nav_action_pca_input = nav_action_trajectories.reshape(-1, nav_action_trajectories.shape[2])
 nav_patch_pca_input = nav_patch_trajectories.reshape(-1, nav_patch_trajectories.shape[2])
 pre_move_outcome_pca_input = pre_move_outcome_data.reshape(-1, pre_move_outcome_data.shape[2])
@@ -324,6 +330,7 @@ pre_move_scaler = CustomScaler(PC_padding)
 nav_action_scaler = CustomScaler(PC_padding)
 nav_patch_scaler = CustomScaler(PC_padding)
 outcome_scaler = CustomScaler(PC_padding)
+
 pre_move_outcome_scaler = CustomScaler(PC_padding)
 
 nav_pca_input_scaled = nav_scaler.fit_transform(nav_pca_input)
@@ -331,6 +338,7 @@ pre_move_pca_input_scaled = pre_move_scaler.fit_transform(pre_move_pca_input)
 nav_action_pca_input_scaled = nav_action_scaler.fit_transform(nav_action_pca_input)
 nav_patch_pca_input_scaled = nav_patch_scaler.fit_transform(nav_patch_pca_input)
 outcome_pca_input_scaled = outcome_scaler.fit_transform(outcome_pca_input)
+
 
 # Remove NaN rows (can occur from reward=-1 trials)
 pre_move_outcome_pca_input = pre_move_outcome_pca_input[
@@ -346,6 +354,7 @@ pm_pca = PCA(n_components=5)
 na_pca = PCA(n_components=5)
 np_pca = PCA(n_components=5)
 o_pca = PCA(n_components=5)
+
 pmr_pca = PCA(n_components=5)
 
 nav_pca = n_pca.fit_transform(nav_pca_input_scaled)
@@ -353,6 +362,7 @@ pre_move_pca = pm_pca.fit_transform(pre_move_pca_input_scaled)
 nav_action_pca = na_pca.fit_transform(nav_action_pca_input_scaled)
 nav_patch_pca = np_pca.fit_transform(nav_patch_pca_input_scaled)
 outcome_pca = o_pca.fit_transform(outcome_pca_input_scaled)
+
 pre_move_outcome_pca = pmr_pca.fit_transform(pre_move_outcome_pca_input_scaled)
 
 # %% Grab data for projection / plotting
@@ -597,9 +607,13 @@ def make_3d_plot(
         fig = plt.figure(figsize=(8, 8), dpi=300)
         ax = fig.add_subplot(111, projection="3d")
 
-    sample_space_local = np.linspace(0, 1, int(len(neural_trajectories) * 1))
-    blues_local = colormap.Blues(sample_space_local)
-    reds_local = colormap.Reds(sample_space_local)
+    sample_space_local = np.linspace(
+        0, 1, int(len(neural_trajectories) * 2) + 2
+    )
+    blues_local = colormap.Blues(sample_space_local)[2::2]
+    reds_local = colormap.Reds(sample_space_local)[2::2]
+
+    projected_allcond = []
 
     def _project(traj_2d):
         projected_ = pca.transform(scaler.transform(traj_2d)).T
@@ -623,6 +637,7 @@ def make_3d_plot(
             continue
 
         projected = _project(traj)
+        projected_allcond.append(projected)
 
         if color_style == "condition":
             plot_col = color_map[cond]
@@ -796,7 +811,7 @@ def make_3d_plot(
         if show:
             display(widgets.VBox([fig, read_btn, out]))
 
-    return fig, ax
+    return fig, projected_allcond
 
 
 # ===========================================================================
@@ -813,7 +828,7 @@ _fig, _ax = make_3d_plot(
     nav_trajectories_by_condition.values(),
     nav_trajectories_by_condition.keys(),
     n_pca, nav_scaler, title, nav_PCs,
-    color_map=cm, plot_style="mpl", elev=90, azim=67.52,
+    color_map=cm, plot_style="plotly", elev=90, azim=67.52,
 )
 
 # %% Figure 3A Bottom Panel: Pre-move PC space
@@ -899,7 +914,7 @@ nav_data_to_project, nav_conditions, _ = grab_data_for_PC_space(
     df_to_slice, index_array, time_before_ms=0, time_after_ms=3000,
     align_point="start_time", single_trial=True,
 )
-_fig, _ax = make_3d_plot(
+_fig, _ = make_3d_plot(
     nav_data_to_project, nav_conditions, n_pca, nav_scaler, title, nav_PCs,
 )
 
@@ -910,6 +925,397 @@ pre_move_trajectories, pre_move_conditions, _ = grab_data_for_PC_space(
     df_to_slice, index_array, time_before_ms=1000, time_after_ms=1000,
     align_point="start_time", single_trial=True,
 )
-_fig, _ax = make_3d_plot(
+_fig, _ = make_3d_plot(
     pre_move_trajectories, pre_move_conditions, pm_pca, pre_move_scaler, title, pre_move_PCs,
 )
+
+
+# ===========================================================================
+# SINGLE-TRIAL OUTCOME EFFECTS ANALYSIS
+# ===========================================================================
+
+
+# %% Helper: visualize single trials within specific bouts
+def single_trial_outcome_space(
+    bout_start,
+    num_bouts_to_include=1,
+    reward_style="previous",
+    trial_info_full=False,
+    non_reward_begin_offset=None,
+    plot_style="plotly",
+    title=None,
+    time_before_ms=200,
+    zero_offset_dot=0,
+    azim=0,
+    elev=0,
+    save_fig=False,
+    add_halo=True,
+):
+    """Plot single-trial trajectories for specific bout(s) in pre-move PC space.
+
+    Parameters
+    ----------
+    bout_start : int
+        Index of the first bout to visualize (0-indexed).
+    num_bouts_to_include : int
+        How many consecutive bouts to include.
+    reward_style : str
+        'previous' or 'current' — determines which reward field to use for
+        coloring trials as rewarded vs. non-rewarded.
+    trial_info_full : bool
+        If True, use the unfiltered trial_info_orig.
+    non_reward_begin_offset : int or None
+        If set, blank the first N samples of non-reward trajectories.
+    plot_style : str
+        'plotly' or 'mpl'.
+    title : str or None
+        Custom title; auto-generated if None.
+    time_before_ms : int
+        Time before alignment point in ms.
+    zero_offset_dot : int
+        Sample index for the colored start dot.
+    azim, elev : float
+        Camera angles for matplotlib.
+    save_fig : bool
+        Save the figure.
+    add_halo : bool
+        Draw black halo behind trajectories.
+
+    Returns
+    -------
+    tuple
+        (outcome_trajectories, outcome_conditions, projected_all,
+         trial_indices, trial_ids)
+    """
+    if title is None:
+        title = (
+            f"Single trial state space: bout {bout_start} to "
+            f"{bout_start + num_bouts_to_include - 1} in pre-move PC space"
+        )
+
+    trial_df = dataset.trial_info if not trial_info_full else trial_info_orig
+    switch_trial_idxs = trial_df[trial_df.trial_id_before_switch == 0]
+
+    bout_end = bout_start + num_bouts_to_include - 1
+    begin = 0 if bout_start == 0 else switch_trial_idxs.index[bout_start - 1] + 1
+    end = switch_trial_idxs.index[bout_end] + 1
+    chosen_trials = list(range(begin, end))
+
+    if reward_style == "current":
+        reward_trials = (
+            trial_df.loc[chosen_trials]
+            .query("Reward == True")
+            .trial_id_before_switch.values
+        )
+    elif reward_style == "previous":
+        reward_trials = (
+            trial_df.loc[chosen_trials]
+            .query("RewardPrevious == True")
+            .trial_id_before_switch.values
+        )
+    else:
+        raise ValueError(f"Invalid reward_style: {reward_style}")
+
+    pc_obj = o_pca
+    scaler_obj = outcome_scaler
+    align_p = "start_time"
+
+    outcome_PCs = [0, 1, 2]
+
+    outcome_trajectories, outcome_conditions, trial_indices = grab_data_for_PC_space(
+        df_to_slice,
+        index_array,
+        time_before_ms=time_before_ms,
+        time_after_ms=0,
+        align_point=align_p,
+        conditions=pre_switch_conditions_orig,
+        trial_info_full=trial_info_full,
+        single_trial=True,
+    )
+
+    trial_ids = np.where(np.isin(trial_indices, chosen_trials))
+
+    _, projected_all = make_3d_plot(
+        outcome_trajectories[trial_ids],
+        outcome_conditions[trial_ids],
+        pc_obj,
+        scaler_obj,
+        title,
+        outcome_PCs,
+        color_style="reward",
+        reward_trials=reward_trials,
+        dot_size_mult=1.5,
+        add_halo=add_halo,
+        zero_offset_dot=zero_offset_dot,
+        non_reward_begin_offset=non_reward_begin_offset,
+        plot_style=plot_style,
+        azim=azim,
+        elev=elev,
+        save_fig=save_fig,
+    )
+
+    return outcome_trajectories, outcome_conditions, projected_all, trial_indices, trial_ids
+
+
+# %% All single trials in pre-move PC space (outcome effects analysis)
+title = "SINGLE TRIAL Move init -0.2s to Move init in pre-move PC space"
+outcome_PCs = [0, 1, 2]
+outcome_trajectories_st, outcome_conditions_st, trial_indices_st = grab_data_for_PC_space(
+    df_to_slice,
+    index_array,
+    time_before_ms=200,
+    time_after_ms=0,
+    align_point="start_time",
+    single_trial=True,
+)
+_, single_traj = make_3d_plot(
+    outcome_trajectories_st, outcome_conditions_st, o_pca, outcome_scaler,
+    title, outcome_PCs,
+)
+
+# %% Trial-averaged trajectories in pre-move PC space
+outcome_PCs = [0, 1, 2]
+title = f"-1s to +4s in Pre-move PC space (PCs {outcome_PCs}): all reward conds"
+_, average_traj = make_3d_plot(
+    outcome_trajectories_by_condition.values(),
+    outcome_trajectories_by_condition.keys(),
+    o_pca,
+    outcome_scaler,
+    title,
+    outcome_PCs,
+    color_map=cm,
+    zero_offset_dot=100,
+    add_halo=False,
+)
+
+# %% Reorder trials by behavioral order and extract initial states
+expected_shape = single_traj[0].shape
+assert all(
+    arr.shape == expected_shape for arr in single_traj
+), "Not all projected trajectories have the same shape."
+
+order = np.argsort(trial_indices_st)
+trial_indices_sorted = trial_indices_st[order]
+single_traj_sorted = np.array(single_traj)[order]
+single_conds_sorted = outcome_conditions_st[order]
+
+# Initial states are the last timepoint of each trajectory
+init_traj = [traj[:, -1] for traj in single_traj_sorted]
+initial_states = pd.DataFrame(
+    {"initial_states": init_traj}, index=dataset.trial_info.index
+)
+dataset.trial_info = pd.concat((dataset.trial_info, initial_states), axis=1)
+
+# %% Compute trial-to-trial changes in initial states
+init_state_diff = [np.nan]
+for i in range(1, len(initial_states)):
+    diff = initial_states.iloc[i, 0] - initial_states.iloc[i - 1, 0]
+    init_state_diff.append(diff)
+
+dataset.trial_info["init_state_diff"] = init_state_diff
+
+# %% Separate changes for post-reward vs. post-omission trials
+sessions = [2, 4, 6, 8]
+trial_thres = 50
+best_patch_only = False
+
+base_mask = (
+    np.array(dataset.trial_info.epoch.isin(sessions))
+    & np.array(dataset.trial_info.trial_number_by_epoch > trial_thres)
+    & np.array(dataset.trial_info.IsSwitchPrevious == 0)
+)
+
+if best_patch_only:
+    patch_mask = np.array(
+        dataset.trial_info.EndStem == dataset.trial_info.BestStem
+    )
+    base_mask = base_mask & patch_mask
+
+rewarded_diff = dataset.trial_info[
+    np.array(dataset.trial_info.RewardPrevious == 1) & base_mask
+].init_state_diff
+
+omission_diff = dataset.trial_info[
+    np.array(dataset.trial_info.RewardPrevious == 0) & base_mask
+].init_state_diff
+
+# %% Compute cosine angles between outcome effect vectors
+total_diff_r = rewarded_diff.sum(axis=0, skipna=True)
+total_diff_o = omission_diff.sum(axis=0, skipna=True)
+mean_diff_r = rewarded_diff.mean(axis=0, skipna=True)
+mean_diff_o = omission_diff.mean(axis=0, skipna=True)
+
+logger.info(f"Total diff (reward):  {total_diff_r}")
+logger.info(f"Total diff (omission): {total_diff_o}")
+logger.info(f"Mean diff (reward):  {mean_diff_r}")
+logger.info(f"Mean diff (omission): {mean_diff_o}")
+
+
+def cosine_angle(v1, v2):
+    """Compute cosine of angle between two vectors."""
+    denom = np.linalg.norm(v1) * np.linalg.norm(v2)
+    return np.dot(v1, v2) / denom if denom > 0 else np.nan
+
+
+outcome_effect_all = cosine_angle(total_diff_r, total_diff_o)
+outcome_effect_23 = cosine_angle(total_diff_r[[1, 2]], total_diff_o[[1, 2]])
+outcome_effect_24 = cosine_angle(total_diff_r[[1, 3]], total_diff_o[[1, 3]])
+outcome_effect_34 = cosine_angle(total_diff_r[[2, 3]], total_diff_o[[2, 3]])
+
+logger.info(f"Cosine angle PCs 1-5: {outcome_effect_all:.4f}")
+logger.info(f"Cosine angle PCs 2+3: {outcome_effect_23:.4f}")
+logger.info(f"Cosine angle PCs 2+4: {outcome_effect_24:.4f}")
+logger.info(f"Cosine angle PCs 3+4: {outcome_effect_34:.4f}")
+
+
+# %% Bootstrap 95% CI for cosine angle
+save_results = False
+PC_indices = [1, 3]
+
+rewarded_arr = np.vstack(rewarded_diff.dropna().to_numpy())
+omission_arr = np.vstack(omission_diff.dropna().to_numpy())
+n_boot = 10_000
+rng = np.random.default_rng(seed=0)
+
+n_r, n_pc = rewarded_arr.shape
+n_o, _ = omission_arr.shape
+
+boot_cos_pcs = np.zeros(n_boot)
+for b in range(n_boot):
+    idx_r = rng.integers(0, n_r, size=n_r)
+    idx_o = rng.integers(0, n_o, size=n_o)
+    total_r = rewarded_arr[idx_r].sum(axis=0)
+    total_o = omission_arr[idx_o].sum(axis=0)
+    boot_cos_pcs[b] = cosine_angle(total_r[PC_indices], total_o[PC_indices])
+
+ci_cos_pcs = np.nanpercentile(boot_cos_pcs, [2.5, 97.5])
+logger.info(
+    f"Bootstrap cosine angle (PCs {PC_indices[0]+1},{PC_indices[1]+1}): "
+    f"95% CI = [{ci_cos_pcs[0]:.4f}, {ci_cos_pcs[1]:.4f}]"
+)
+
+if save_results:
+    file_name = dataset.trial_info.nwb_file_name.unique()[0]
+    results_file = os.path.join(
+        results_dir,
+        f"{file_name[:-5]}_cosine_angle_reward_vs_omission_"
+        f"PCs{PC_indices[0]+1}{PC_indices[1]+1}.npz",
+    )
+    np.savez(results_file, boot_cos_pcs=boot_cos_pcs, ci_cos_pcs=ci_cos_pcs)
+    logger.info(f"Saved bootstrap results to {results_file}")
+
+# %% Plot cosine angle mean + CI
+cos_mean = np.nanmean(boot_cos_pcs)
+ci_low, ci_high = ci_cos_pcs
+yerr = np.array([[cos_mean - ci_low], [ci_high - cos_mean]])
+
+fig_ci, ax_ci = plt.subplots(figsize=(3, 4))
+ax_ci.errorbar(0, cos_mean, yerr=yerr, fmt="o", capsize=4)
+ax_ci.axhline(0, linestyle="--", linewidth=1)
+ax_ci.set_xlim(-0.5, 0.5)
+ax_ci.set_ylabel(f"Cosine angle (PC{PC_indices[0]+1}–PC{PC_indices[1]+1})")
+ax_ci.set_xticks([])
+ax_ci.set_title("Outcome effect")
+plt.tight_layout()
+plt.show()
+
+
+# %% Polar angle histogram of neural-state shifts
+def polar_angle_histogram_two_groups(
+    V1: np.ndarray,
+    V2: np.ndarray,
+    *,
+    n_bins: int = 30,
+    density: bool = True,
+    color1: str = "tab:blue",
+    color2: str = "tab:orange",
+    alpha1: float = 0.6,
+    alpha2: float = 0.6,
+    label1: str = "Group 1",
+    label2: str = "Group 2",
+    r_max: float = 0.5,
+    title: str = "",
+) -> None:
+    """Overlay two polar (rose) histograms of 2D vector angles.
+
+    Parameters
+    ----------
+    V1, V2 : np.ndarray, shape (n, 2)
+        2D vectors for each group.
+    n_bins : int
+        Number of angular bins.
+    density : bool
+        If True, normalize to probability density.
+    color1, color2 : str
+        Colors for the two groups.
+    alpha1, alpha2 : float
+        Transparency for the bars.
+    label1, label2 : str
+        Legend labels.
+    r_max : float
+        Maximum radial extent.
+    title : str
+        Plot title.
+    """
+    V1 = np.asarray(V1, dtype=float)
+    V2 = np.asarray(V2, dtype=float)
+    if V1.ndim != 2 or V1.shape[1] != 2:
+        raise ValueError("V1 must have shape (n, 2)")
+    if V2.ndim != 2 or V2.shape[1] != 2:
+        raise ValueError("V2 must have shape (n, 2)")
+
+    theta1 = np.arctan2(V1[:, 1], V1[:, 0])
+    theta2 = np.arctan2(V2[:, 1], V2[:, 0])
+
+    bins = np.linspace(-np.pi, np.pi, n_bins + 1)
+    c1, edges = np.histogram(theta1, bins=bins, density=density)
+    c2, _ = np.histogram(theta2, bins=bins, density=density)
+
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    width = edges[1] - edges[0]
+
+    fig_polar = plt.figure(figsize=(5, 5))
+    ax_polar = fig_polar.add_subplot(111, projection="polar")
+    ax_polar.bar(
+        centers, c1, width=width, color=color1, alpha=alpha1,
+        align="center", label=label1,
+    )
+    ax_polar.bar(
+        centers, c2, width=width, color=color2, alpha=alpha2,
+        align="center", label=label2,
+    )
+    ax_polar.set_rlim(0, r_max)
+    ax_polar.set_yticks(np.arange(0.1, r_max + 1e-6, 0.1))
+    ax_polar.set_title(title)
+    ax_polar.legend(frameon=False, loc="upper right")
+    plt.tight_layout()
+    plt.show()
+
+
+# %% Normalize state-shift vectors and plot polar distribution
+X_rew = np.vstack(rewarded_diff.to_numpy())[:, PC_indices]
+norms_r = np.linalg.norm(X_rew, axis=1, keepdims=True)
+X_rew_norm = np.divide(X_rew, norms_r, where=norms_r != 0)
+
+X_omi = np.vstack(omission_diff.to_numpy())[:, PC_indices]
+norms_o = np.linalg.norm(X_omi, axis=1, keepdims=True)
+X_omi_norm = np.divide(X_omi, norms_o, where=norms_o != 0)
+
+polar_angle_histogram_two_groups(
+    X_rew_norm,
+    X_omi_norm,
+    n_bins=36,
+    color1="firebrick",
+    color2="royalblue",
+    label1="Reward",
+    label2="Omission",
+    r_max=0.5,
+    title=f"{trial_info_orig.nwb_file_name.unique()[0][:-5]}",
+)
+
+outcome_effect_norm = cosine_angle(
+    X_rew_norm.sum(axis=0), X_omi_norm.sum(axis=0)
+)
+logger.info(f"Cosine angle (normalized shift vectors): {outcome_effect_norm:.4f}")
+
+# %%

@@ -4,15 +4,39 @@ Provides helper functions for loading merged datasets.
 """
 
 import os
+import types
 
 import dill
 
 import sys
 from pathlib import Path
 
-# Add configs to path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "configs"))
+# Add project root and configs to path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "configs"))
+sys.path.insert(0, str(PROJECT_ROOT))
 from config import config
+
+# ---------------------------------------------------------------------------
+# Shim: register core classes under the snel_toolkit namespace so that
+# pickled datasets created with the original snel_toolkit can be loaded
+# without having snel_toolkit installed.
+# ---------------------------------------------------------------------------
+from core.nwb_dataset import NWBDataset
+from core.base_dataset import BaseDataset
+
+_snel = types.ModuleType("snel_toolkit")
+_snel_datasets = types.ModuleType("snel_toolkit.datasets")
+_snel_nwb = types.ModuleType("snel_toolkit.datasets.nwb")
+
+_snel_nwb.NWBDataset = NWBDataset
+_snel_nwb.BaseDataset = BaseDataset
+_snel_datasets.nwb = _snel_nwb
+_snel.datasets = _snel_datasets
+
+sys.modules["snel_toolkit"] = _snel
+sys.modules["snel_toolkit.datasets"] = _snel_datasets
+sys.modules["snel_toolkit.datasets.nwb"] = _snel_nwb
 
 
 def load_dataset():
