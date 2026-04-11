@@ -67,12 +67,13 @@ Follow the installation instructions at [github.com/arsedler9/lfads-torch](https
 
 ### Quick start: Reproduce state space analysis from saved data
 
-If you already have a merged dataset (output from Step 2), you can directly run the state space analysis:
+A pre-processed merged dataset for the sample session is available in the public [Dropbox folder](https://www.dropbox.com/scl/fi/ds2mfnc4r70njihqx4w34/NeuralDataSharing.zip?rlkey=gvb0dsvi9s2586a68ex3yu51x&st=rwxspizp&dl=0). Download the `.pkl` file from `merged_datasets/` and place it in your local `merged_datasets/` directory, then:
 
-1. Update `configs/config.py` with your data paths:
+1. Update `configs/config.py` with the path to where you placed the data and the experiment name:
 
 ```python
-BASE_DIR = "/path/to/your/data"  # containing merged_datasets/ subdirectory
+BASE_DIR = "/path/to/your/data"       # directory containing merged_datasets/
+experiment_name = "wilbur20210408_wake"  # must match the downloaded .pkl filename
 ```
 
 2. Run the analysis interactively in VS Code or Jupyter:
@@ -107,54 +108,29 @@ python scripts/03_state_space_analysis.py
 
 ### Running on your own data
 
-1. **Prepare NWB file**: Format your neural data as an NWB file with spike times and trial metadata. See [pynwb documentation](https://pynwb.readthedocs.io/) for formatting guidelines. Example NWB files are available at 
-## TODO: Add link to example NWB files in Dropbox
+1. **Prepare NWB file**: Format your neural data as an NWB file with spike times and trial metadata. See [pynwb documentation](https://pynwb.readthedocs.io/) for formatting guidelines.
 
-2. **Update configuration**: Edit `configs/config.py`:
-   - Set `BASE_DIR` to your data directory
-   - Set `experiment_name` to match your NWB filename
-   - Adjust `bin_size`, `xcorr_threshold` as needed
+### Sample data
 
-3. **Run the pipeline**: Execute scripts 01 → 02 → 03 in order. Between 01 and 02, you must train an LFADS model using `lfads-torch`.
+We provide sample data in a public [Dropbox folder](https://www.dropbox.com/scl/fi/ds2mfnc4r70njihqx4w34/NeuralDataSharing.zip?rlkey=gvb0dsvi9s2586a68ex3yu51x&st=rwxspizp&dl=0). The folder includes:
 
-### Directory structure
+- **Sample NWB dataset** — raw spike-sorted neural data for testing the full pipeline from Step 1 (NWB → LFADS input).
+- **Sample LFADS merged output** — a pre-processed merged dataset (`.pkl`) that can be used to directly run the state space analysis in Step 3, without needing to train an LFADS model (which requires a GPU).
 
-Your `BASE_DIR` should contain:
-```
-BASE_DIR/
-├── NWB/                    # Input NWB files
-│   └── <experiment>.nwb
-├── datasets/               # Intermediate chopped datasets (created by Step 1)
-├── merged_datasets/        # Merged analysis datasets (created by Step 2)
-└── figures/                # Output figures (created by Step 3)
-```
-
-### LFADS model training
-
-Between Steps 1 and 2, train an LFADS model:
-
-1. Copy configs from `lfads_torch_configs/` to your `lfads-torch` installation
-2. Adjust `encod_data_dim` in the model config to match your unit count
-3. Create and run the PBT training script (see `lfads_torch_configs/scripts/run_pbt_wilbur.py`)
-
-See the `lfads_torch_configs/` directory for example configuration files.
+To use the sample merged output for a quick test:
+1. Download the `.pkl` file from the Dropbox folder
+2. Place it in `{BASE_DIR}/merged_datasets/`
+3. Update `configs/config.py` to set `experiment_name` to match the downloaded file
+4. Run `scripts/03_state_space_analysis.py` interactively
 
 ## Reproduction Instructions
 
-<!-- To reproduce the K99 figures from the paper:
+To reproduce the figures from the paper:
 
-1. Obtain the NWB data file for the Wilbur session (day 4: `wilbur20210408_wake.nwb`)
-2. Run Steps 1–3 with the default configuration
-3. In `scripts/03_state_space_analysis.py`, look for `# %% Figure 3A` and subsequent `# %% K99:` cells
-
-Key figures:
-- **Figure 3A Top**: Navigation PC space (move init to move init + 3s)
-- **Figure 3A Bottom**: Pre-move PC space (-1s to +1.5s around move initiation)
-- **Figure 3A Middle**: Action-coded trajectories in navigation space
-- **Figure 3A Right**: Patch-coded trajectories in navigation space
-- **K99 Outcome plots**: Outcome and pre-move trajectories split by reward condition -->
-
-## TODO: Add specific instructions 
+1. Download the sample NWB and merged output data from the [Dropbox folder](https://www.dropbox.com/scl/fi/ds2mfnc4r70njihqx4w34/NeuralDataSharing.zip?rlkey=gvb0dsvi9s2586a68ex3yu51x&st=rwxspizp&dl=0)
+2. Place the merged output `.pkl` file in `{BASE_DIR}/merged_datasets/`
+3. Update `configs/config.py` with the correct `BASE_DIR` and `experiment_name`
+4. Open `scripts/03_state_space_analysis.py` interactively and run the cells marked with `# %% Figure 3A` and `# %% K99:`
 
 ## Additional Information
 

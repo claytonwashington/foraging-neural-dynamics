@@ -80,9 +80,7 @@ interface_path = os.path.join(
 )
 full_merge_save_path = os.path.join(
     merged_dataset_save_dir,
-    "{}_{}_{}_full_merged_output.pkl".format(
-        rat_name, config["run_date"], config["run_idx"]
-    ),
+    "{}_full_merged_output.pkl".format(config["experiment_name"]),
 )
 lfads_torch_outputs_path = os.path.join(
     BEST_MODEL_DIR, "lfads_output_{}.h5".format(DATASET_STR.split(".")[0])

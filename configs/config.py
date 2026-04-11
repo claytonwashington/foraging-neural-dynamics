@@ -7,28 +7,26 @@ Update the paths below to match your local setup before running scripts.
 # USER: Update these paths to match your environment
 # ============================================================
 
-# Base directory containing NWB files, datasets, and merged outputs.
-# Expected subdirectories: NWB/, datasets/, merged_datasets/
-BASE_DIR = "/snel/share/share/data/xulu_mpfc"
+# TODO: Update to your local data directory (containing NWB/, datasets/, merged_datasets/)
+BASE_DIR = "/path/to/your/data" 
 
-# Directory one level above your lfads-torch clone.
+# TODO: Update to the directory one level above your lfads-torch clone
 # e.g., if lfads-torch is at /home/user/lfads-torch/, set to /home/user
-LFADS_TORCH_PREFIX = "/home/cbwash2/lfads-torch-cuda12"
+LFADS_TORCH_PREFIX = "/path/to/your/lfads-torch"
 
-# Directory for lfads-torch run outputs
-RUN_DIR = "/snel/share/runs"
+# TODO: Update to your lfads-torch run output directory
+RUN_DIR = "/path/to/your/runs"
 
 # ============================================================
 # Dataset / experiment configuration
 # ============================================================
 
 config = {
-    "experiment_name": "wilbur20210407_wake",   # Experiment identifier
-    "run_date": "250225",                        # Date tag for the LFADS run
+    "experiment_name": "wilbur_210408",   # Experiment identifier (must match your NWB/merged dataset filename)
+    "run_date": "250907",                        # Update to the date tag of your LFADS run (format: YYMMDD)
     "run_idx": "0",                              # Run index (usually 0)
     "xcorr_threshold": 0.1,                      # Cross-correlation threshold for channel rejection
     "bin_size": 10,                               # Bin width in ms
-    "model_num": 1,
     "base_dir": BASE_DIR,
     "lfads_torch_prefix": LFADS_TORCH_PREFIX,
     "run_dir": RUN_DIR,

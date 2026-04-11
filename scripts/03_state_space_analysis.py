@@ -814,10 +814,6 @@ def make_3d_plot(
     return fig, projected_allcond
 
 
-# ===========================================================================
-# K99 FIGURES
-# ===========================================================================
-
 # %% Choose color map based on PLOT_ALL_TRIALS
 cm = color_map_orig if PLOT_ALL_TRIALS else color_map
 
@@ -855,7 +851,7 @@ _fig, _ax = make_3d_plot(
     plot_style="plotly", elev=20, azim=150, save_fig=False,
 )
 
-# %% K99: Both outcome conditions in outcome PC space
+# %% Both outcome conditions in outcome PC space
 elev = 20
 azim = 150
 title = "poke-in aligned outcome | all conds (0,3) | e{}a{}".format(elev, azim)
@@ -869,7 +865,7 @@ _fig, _ax = make_3d_plot(
     zero_offset_dot=0, elev=elev, azim=azim, save_fig=False,
 )
 
-# %% K99: Both reward conditions in pre-move PC space
+# %% Both reward conditions in pre-move PC space
 elev = 30
 azim = -30
 title = "poke-out aligned pre-move | rew: (-5,2.5) | no rew: (-0.9,2.5) | e{}a{}".format(elev, azim)
@@ -889,7 +885,7 @@ _fig, _ax = make_3d_plot(
     elev=elev, azim=azim, save_fig=False,
 )
 
-# %% Figure 3A Middle Panel: Action in Nav PC space
+# %% Action in Nav PC space
 title = "Path progression + action in Nav. PC space"
 PCs = [0, 1, 2]
 _fig, _ax = make_3d_plot(
@@ -898,7 +894,7 @@ _fig, _ax = make_3d_plot(
     na_pca, nav_action_scaler, title, PCs, color_map=cm,
 )
 
-# %% Figure 3A Right Panel: Patch ID in Nav PC space
+# %% Patch ID in Nav PC space
 title = "Path progression + patch ID in Nav. PC space"
 PCs = [0, 1, 2]
 _fig, _ax = make_3d_plot(
