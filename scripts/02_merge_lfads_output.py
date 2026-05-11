@@ -6,6 +6,8 @@ Pipeline steps:
 3. Combine train/valid outputs and merge chops
 4. Smooth spikes, rates, and factors
 5. Save the merged dataset for analysis
+6. (Optional) Sanity-check plot: poke-in aligned raster, smoothed spikes,
+   and smoothed LFADS rates — set PLOT_SANITY_CHECK = True to enable.
 
 Usage:
     python scripts/02_merge_lfads_output.py
@@ -167,3 +169,125 @@ with open(full_merge_save_path, "wb") as f:
     dill.dump(dataset, f, protocol=dill.HIGHEST_PROTOCOL, recurse=True)
 
 logger.info("Pipeline step 2 complete: lfads-torch output → merged dataset")
+
+
+# ============================================================
+# Step 6 (optional): Sanity-check plot — poke-in aligned signals
+# ============================================================
+# Toggle this flag to True to generate the alignment sanity-check figure.
+PLOT_SANITY_CHECK = True
+
+# Window around poke-in time (ms).  Values are snapped to the nearest bin.
+MS_BEFORE = 100
+MS_AFTER = 300
+
+if PLOT_SANITY_CHECK:
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as colormap
+    import matplotlib.gridspec as gridspec
+    import random
+
+    bin_size_ms = config["bin_size"]  # ms per time bin
+
+    # ── Snap window to nearest bin boundary ──────────────────────────────────
+    ms_before = round(MS_BEFORE / bin_size_ms) * bin_size_ms
+    ms_after = round(MS_AFTER / bin_size_ms) * bin_size_ms
+
+    pre_td = np.timedelta64(int(ms_before * 1e6), "ns")   # ms → ns
+    post_td = np.timedelta64(int(ms_after * 1e6), "ns")
+
+    time_index = dataset.data.index.to_numpy()             # timedelta64[ns]
+
+    # Extract arrays once (shape: T × N_neurons)
+    spikes_arr = dataset.data["spikes"].to_numpy()
+    spikes_smooth_arr = dataset.data[f"spikes_smooth_{spike_smooth_width}"].to_numpy()
+    lfads_rates_arr = dataset.data["lfads_rates"].to_numpy()
+
+    # ── Pick a random trial with a valid poke-in timestamp ───────────────────
+    valid_trials = dataset.trial_info.dropna(subset=["poke_in_ts"])
+    if valid_trials.empty:
+        logger.warning("No trials with valid poke_in_ts found — skipping sanity plot.")
+    else:
+        trial_row = valid_trials.iloc[random.randint(0, len(valid_trials) - 1)]
+        poke_in_ts = np.timedelta64(trial_row["poke_in_ts"].value, "ns")
+
+        start_ts = poke_in_ts - pre_td
+        end_ts = poke_in_ts + post_td
+
+        start_ix = int(np.searchsorted(time_index, start_ts, side="left"))
+        end_ix = int(np.searchsorted(time_index, end_ts, side="left")) + 1
+
+        # Time axis in ms relative to poke-in
+        t_bins = (time_index[start_ix:end_ix] - poke_in_ts).astype("float64") / 1e6
+
+        spikes_win = spikes_arr[start_ix:end_ix]             # (T_win, N)
+        spikes_smooth_win = spikes_smooth_arr[start_ix:end_ix]
+        lfads_rates_win = lfads_rates_arr[start_ix:end_ix]
+
+        n_neurons = spikes_win.shape[1]
+        
+        # Determine sorting based on peak firing rate time
+        sort_order = np.argsort(np.argmax(spikes_smooth_win, axis=0))
+        
+        # Shared limits for heatmaps
+        vmax_spk = np.percentile(spikes_smooth_win, 99)
+        vmax_rate = np.percentile(lfads_rates_win, 99)
+
+        # Bin index of poke-in (for vlines on pcolor axes)
+        poke_bin = int(ms_before / bin_size_ms)
+
+        # ── Figure layout ─────────────────────────────────────────────────────
+        fig, axs = plt.subplots(3, 1, figsize=(10, 12), dpi=100)
+        plt.subplots_adjust(top=0.88)
+
+        ax_spk, ax_smooth, ax_rates = axs
+
+        # ── Shared vmax across smoothed spikes & LFADS rates ─────────────────
+        vmax = max(spikes_smooth_win.max(), lfads_rates_win.max())
+        max_scale = 0.5
+
+        titles = [
+            f"Original spikes  (bin={bin_size_ms} ms)",
+            f"Smoothed spikes  (σ={spike_smooth_width} ms)",
+            "LFADS inferred rates",
+        ]
+        data_slices = [
+            spikes_win[:, sort_order].T,
+            spikes_smooth_win[:, sort_order].T,
+            lfads_rates_win[:, sort_order].T,
+        ]
+        vmaxs = [1, max_scale * vmax, max_scale * vmax]
+        cmaps = [colormap.bone_r, "viridis", "viridis"]
+
+        fig.suptitle(
+            f"Poke-in aligned  |  trial {int(trial_row.name)}  |  "
+            f"window: −{ms_before:.0f} / +{ms_after:.0f} ms  |  bin: {bin_size_ms} ms",
+            x=0.1, y=1,
+        )
+
+        for i in range(3):
+            axs[i].pcolor(data_slices[i], cmap=cmaps[i], vmin=0, vmax=vmaxs[i])
+            axs[i].set_title(titles[i])
+            axs[i].vlines(poke_bin, 0, n_neurons, color="r")
+            try:
+                axs[i].set_xticklabels(
+                    t_bins[axs[i].get_xticks().astype(int)].astype(int)
+                )
+            except Exception:
+                axs[i].set_xticklabels(
+                    t_bins[axs[i].get_xticks().astype(int)[:-1]].astype(int)
+                )
+            axs[i].set_ylabel("Neurons (sorted)")
+            axs[i].set_xlabel("Time relative to poke-in (ms)")
+            axs[i].spines["right"].set_visible(False)
+            axs[i].spines["top"].set_visible(False)
+
+        plt.subplots_adjust(hspace=0.5)
+        fig.tight_layout()
+        plt.show()
+
+        logger.info(
+            "Step 6 sanity-check plot complete  "
+            f"(trial {int(trial_row.name)}, window −{ms_before:.0f}/+{ms_after:.0f} ms)"
+        )
