@@ -94,6 +94,9 @@ jupytext --to notebook scripts/03_state_space_analysis.py
 To run the complete pipeline from NWB data:
 
 ```bash
+# Step 0 (Optional): Build companion dataset for preprocessing validation
+python scripts/00_build_xcorr_companion.py
+
 # Step 1: NWB → LFADS input
 python scripts/01_nwb_to_lfads_input.py
 
@@ -102,6 +105,9 @@ python scripts/02_merge_lfads_output.py
 
 # Step 3: State space analysis and figure generation
 python scripts/03_state_space_analysis.py
+
+# Step 4 (Optional): Preprocessing validation and robustness checks
+python scripts/04_preprocessing_validation.py
 ```
 
 ## Instructions for Use
@@ -130,17 +136,23 @@ To reproduce the figures from the paper:
 1. Download the sample NWB and merged output data from the [Dropbox folder](https://www.dropbox.com/scl/fi/ds2mfnc4r70njihqx4w34/NeuralDataSharing.zip?rlkey=gvb0dsvi9s2586a68ex3yu51x&st=rwxspizp&dl=0)
 2. Place the merged output `.pkl` file in `{BASE_DIR}/merged_datasets/`
 3. Update `configs/config.py` with the correct `BASE_DIR` and `experiment_name`
-4. Open `scripts/03_state_space_analysis.py` interactively and run the cells marked with `# %% Figure 3A` and `# %% K99:`
+4. Open `scripts/03_state_space_analysis.py` interactively and run the cells marked with `# %% Figure 3A` and the "Both conditions" cells (e.g., `# %% Both reward conditions in pre-move PC space`).
 
 ## Additional Information
 
 ### Pipeline description
+
+Note: Steps 1 through 3 represent the standard, required data pipeline. Steps 0 and 4 are optional validation scripts specifically designed to verify the robustness of the cross-correlation unit rejection threshold and window-stitching logic.
+
+0. (Optional) **Build companion dataset** (`00_build_xcorr_companion.py`): Generates an un-zeroed dataset directly from the NWB for validating the cross-correlation unit rejection.
 
 1. **NWB → LFADS input** (`01_nwb_to_lfads_input.py`): Loads spike-sorted neural data from NWB format, performs cross-correlation-based channel rejection, and chops the continuous recording into overlapping time windows suitable for LFADS training.
 
 2. **Merge LFADS outputs** (`02_merge_lfads_output.py`): Reassembles LFADS-inferred firing rates, latent factors, and generator inputs from chopped segments back into continuous time series aligned with the original trial structure.
 
 3. **State space analysis** (`03_state_space_analysis.py`): Performs PCA on condition-averaged LFADS rates in different task-aligned windows, then projects single-trial and condition-averaged trajectories into 3D subspaces for visualization.
+
+4. (Optional) **Preprocessing validation** (`04_preprocessing_validation.py`): Produces validation figures for manuscript rebuttals, including cross-correlation histograms, stitching boundary checks, and PCA subspace robustness across different unit rejection thresholds.
 
 ### Core module
 
