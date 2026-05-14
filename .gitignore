@@ -10,3 +10,4 @@ build/
 *.nwb
 .ipynb_checkpoints/
 .DS_Store
+*.bak
