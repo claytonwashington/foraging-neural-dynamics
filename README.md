@@ -110,6 +110,8 @@ python scripts/03_state_space_analysis.py
 python scripts/04_preprocessing_validation.py
 ```
 
+> **Note for Steps 0 and 4:** These scripts require the **raw NWB file** to be present at `{BASE_DIR}/NWB/{experiment_name}.nwb` (in addition to the merged `.pkl` from Step 2). They do not need to be run interactively — running `python scripts/04_preprocessing_validation.py` from the terminal will automatically save all validation figures as PDFs to `figures/validation_metrics/{experiment_name}_{run_date}_{run_idx}/`.
+
 ## Instructions for Use
 
 ### Running on your own data
@@ -144,7 +146,7 @@ To reproduce the figures from the paper:
 
 Note: Steps 1 through 3 represent the standard, required data pipeline. Steps 0 and 4 are optional validation scripts specifically designed to verify the robustness of the cross-correlation unit rejection threshold and window-stitching logic.
 
-0. (Optional) **Build companion dataset** (`00_build_xcorr_companion.py`): Generates an un-zeroed dataset directly from the NWB for validating the cross-correlation unit rejection.
+0. (Optional) **Build companion dataset** (`00_build_xcorr_companion.py`): Reads the raw NWB file, computes pairwise cross-correlations on the original un-zeroed spikes, and saves a companion `.pkl` to `{BASE_DIR}/datasets/`. Required as a prerequisite for Step 4.
 
 1. **NWB → LFADS input** (`01_nwb_to_lfads_input.py`): Loads spike-sorted neural data from NWB format, performs cross-correlation-based channel rejection, and chops the continuous recording into overlapping time windows suitable for LFADS training.
 
@@ -152,7 +154,7 @@ Note: Steps 1 through 3 represent the standard, required data pipeline. Steps 0 
 
 3. **State space analysis** (`03_state_space_analysis.py`): Performs PCA on condition-averaged LFADS rates in different task-aligned windows, then projects single-trial and condition-averaged trajectories into 3D subspaces for visualization.
 
-4. (Optional) **Preprocessing validation** (`04_preprocessing_validation.py`): Produces validation figures for manuscript rebuttals, including cross-correlation histograms, stitching boundary checks, and PCA subspace robustness across different unit rejection thresholds.
+4. (Optional) **Preprocessing validation** (`04_preprocessing_validation.py`): Requires the companion pkl from Step 0 and the merged dataset from Step 2. Produces validation figures (PDFs saved to `figures/validation_metrics/{experiment_name}_{run_date}_{run_idx}/`) including cross-correlation histograms, stitching boundary checks, and PCA subspace robustness across different unit rejection thresholds.
 
 ### Core module
 

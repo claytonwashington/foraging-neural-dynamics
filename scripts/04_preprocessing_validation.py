@@ -47,7 +47,8 @@ logging.basicConfig(level=logging.INFO, stream=sys.stdout,
 BIN_SIZE = config["bin_size"]
 XCORR_THRESHOLD = config["xcorr_threshold"]
 base_dir = config["base_dir"]
-FIG_DIR = os.path.join(PROJECT_ROOT, "figures", "rebuttal_validation")
+_session_tag = f"{config['experiment_name']}_{config['run_date']}_{config['run_idx']}"
+FIG_DIR = os.path.join(PROJECT_ROOT, "figures", "validation_metrics", _session_tag)
 os.makedirs(FIG_DIR, exist_ok=True)
 
 SPIKE_SMOOTH_WIDTH = 100
